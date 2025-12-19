@@ -1,0 +1,88 @@
+[app.py.txt](https://github.com/user-attachments/files/24248708/app.py.txt)
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import os
+
+# Where we save all leave applications
+DATA_FILE = "leave_applications.csv"
+
+# Load existing applications (if any)
+def load_data():
+    if os.path.exists(DATA_FILE):
+        return pd.read_csv(DATA_FILE)
+    return pd.DataFrame(columns=[
+        "Employee Name", "Employee ID", "Department",
+        "Start Date", "End Date", "Days", "Reason", "Submitted At"
+    ])
+
+# Save a new application
+def save_application(name, emp_id, dept, start, end, reason):
+    data = load_data()
+    days = (datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")).days + 1
+    new_row = pd.DataFrame({
+        "Employee Name": [name],
+        "Employee ID": [emp_id],
+        "Department": [dept],
+        "Start Date": [start],
+        "End Date": [end],
+        "Days": [days],
+        "Reason": [reason],
+        "Submitted At": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+    })
+    data = pd.concat([data, new_row], ignore_index=True)
+    data.to_csv(DATA_FILE, index=False)
+
+# Page setup
+st.set_page_config(page_title="Annual Leave Application", layout="wide")
+
+st.markdown("""
+    <h1 style='text-align: center; color: #1e3a8a;'>
+        Ministry of Foreign Affairs Research Department
+    </h1>
+    <h2 style='text-align: center;'>Annual Leave Application</h2>
+""", unsafe_allow_html=True)
+
+# Form
+with st.form("leave_application_form"):
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Full Name", placeholder="John Doe")
+        emp_id = st.text_input("Employee ID", placeholder="MFA-12345")
+    with col2:
+        dept = st.text_input("Department", value="Research Department")
+
+    col3, col4 = st.columns(2)
+    with col3:
+        start_date = st.date_input("Start Date")
+    with col4:
+        end_date = st.date_input("End Date")
+
+    reason = st.text_area("Reason for Leave", height=120)
+
+    submitted = st.form_submit_button("Submit Application", use_container_width=True, type="primary")
+
+    if submitted:
+        if not name or not emp_id or not reason:
+            st.error("Please fill in all required fields.")
+        elif start_date >= end_date:
+            st.error("Start date must be before end date.")
+        else:
+            save_application(name, emp_id, dept, str(start_date), str(end_date), reason)
+            st.success(f"**Application submitted successfully!** Leave duration: {days} days.")
+            st.balloons()
+
+# Admin view
+st.markdown("---")
+st.header("HR/Admin View (Password Protected)")
+
+password = st.text_input("Enter Admin Password", type="password", key="admin_pass")
+if password == "mfa2025":  # CHANGE THIS PASSWORD AFTER FIRST USE
+    data = load_data()
+    if not data.empty:
+        st.dataframe(data.style.set_properties(**{'text-align': 'center'}), use_container_width=True)
+    else:
+        st.info("No applications received yet.")
+else:
+    if password:
+        st.error("Incorrect password.")
